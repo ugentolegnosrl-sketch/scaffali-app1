@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<script src="https://cdn.tailwindcss.com"></script>
+<title>Gestione Scaffali</title>
+</head>
+<body class="bg-gray-100 p-6">
+
+<h1 class="text-3xl font-bold mb-6">Gestione Scaffali</h1>
+
+<div class="grid grid-cols-4 gap-4 mb-4">
+<input id="nome" placeholder="Descrizione" class="p-2 border rounded">
+<input id="spessore" placeholder="Spessore" class="p-2 border rounded">
+<input id="lunghezza" placeholder="Lunghezza" class="p-2 border rounded">
+<input id="larghezza" placeholder="Larghezza" class="p-2 border rounded">
+</div>
+
+<div id="results" class="grid grid-cols-3 gap-4"></div>
+
+<hr class="my-8">
+
+<h2 class="text-xl font-bold mb-4">Aggiorna Scaffale</h2>
+<input id="scaffaleInput" placeholder="Es: 1b" class="p-2 border rounded">
+<button onclick="caricaScaffale()" class="bg-blue-500 text-white px-4 py-2 rounded">Apri</button>
+
+<div id="scaffaleProdotti" class="mt-6"></div>
+
+<script>
+const API = "";
+
+async function search() {
+  const nome = document.getElementById("nome").value;
+  const spessore = document.getElementById("spessore").value;
+  const lunghezza = document.getElementById("lunghezza").value;
+  const larghezza = document.getElementById("larghezza").value;
+
+  const res = await fetch(`/api/search?nome=${nome}&spessore=${spessore}&lunghezza=${lunghezza}&larghezza=${larghezza}`);
+  const data = await res.json();
+
+  const container = document.getElementById("results");
+  container.innerHTML = "";
+
+  data.forEach(p => {
+    container.innerHTML += `
+      <div class="bg-white p-4 rounded shadow cursor-pointer"
+           onclick="apriScaffale(${p.fila}, '${p.scaffale}')">
+        <h3 class="font-bold">${p.nome}</h3>
+        <p>${p.lunghezza}x${p.larghezza} - ${p.spessore}mm</p>
+        <p class="text-red-600 font-bold mt-2">Posizione: ${p.fila}${p.scaffale}</p>
+      </div>
+    `;
+  });
+}
+
+document.querySelectorAll("input").forEach(i => i.addEventListener("input", search));
+
+async function apriScaffale(fila, scaffale) {
+  document.getElementById("scaffaleInput").value = fila + scaffale;
+  caricaScaffale();
+}
+
+async function caricaScaffale() {
+  const val = document.getElementById("scaffaleInput").value.toLowerCase();
+  const fila = parseInt(val[0]);
+  const scaffale = val[1];
+
+  const res = await fetch(`/api/scaffale/${fila}/${scaffale}`);
+  if (!res.ok) {
+    alert("Scaffale non valido");
+    return;
+  }
+
+  const data = await res.json();
+  const container = document.getElementById("scaffaleProdotti");
+
+  container.innerHTML = `<h3 class="text-2xl font-bold mb-4">Scaffale ${fila}${scaffale}</h3>`;
+
+  data.forEach(p => {
+    container.innerHTML += `
+      <div class="bg-white p-3 rounded shadow mb-2 flex justify-between items-center">
+        <div>
+          <strong>${p.nome}</strong>
+          <div>${p.lunghezza}x${p.larghezza} - ${p.spessore}mm</div>
+          <div>Ripiano: ${p.ripiano}</div>
+        </div>
+        <button onclick="elimina(${p.id})" class="bg-red-500 text-white px-2 py-1 rounded">Elimina</button>
+      </div>
+    `;
+  });
+}
+
+async function elimina(id){
+  await fetch(`/api/${id}`,{method:"DELETE"});
+  caricaScaffale();
+}
+</script>
+
+</body>
+</html>
