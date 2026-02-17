@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html><!DOCTYPE html>
 <html lang="it">
 <head>
 <meta charset="UTF-8">
@@ -10,10 +10,10 @@
 <h1 class="text-3xl font-bold mb-6">Gestione Scaffali</h1>
 
 <div class="grid grid-cols-4 gap-4 mb-4">
-<input id="nome" placeholder="Descrizione" class="p-2 border rounded">
-<input id="spessore" placeholder="Spessore" class="p-2 border rounded">
-<input id="lunghezza" placeholder="Lunghezza" class="p-2 border rounded">
-<input id="larghezza" placeholder="Larghezza" class="p-2 border rounded">
+  <input id="nome" placeholder="Descrizione" class="p-2 border rounded">
+  <input id="spessore" placeholder="Spessore" class="p-2 border rounded">
+  <input id="lunghezza" placeholder="Lunghezza" class="p-2 border rounded">
+  <input id="larghezza" placeholder="Larghezza" class="p-2 border rounded">
 </div>
 
 <div id="results" class="grid grid-cols-3 gap-4"></div>
@@ -22,79 +22,112 @@
 
 <h2 class="text-xl font-bold mb-4">Aggiorna Scaffale</h2>
 <input id="scaffaleInput" placeholder="Es: 1b" class="p-2 border rounded">
-<button onclick="caricaScaffale()" class="bg-blue-500 text-white px-4 py-2 rounded">Apri</button>
+<button id="apriBtn" class="bg-blue-500 text-white px-4 py-2 rounded">Apri</button>
 
 <div id="scaffaleProdotti" class="mt-6"></div>
 
 <script>
-const API = "";
+const API_BASE = 'https://scaffali-app1.onrender.com';
 
+// --- FUNZIONE DI RICERCA ---
 async function search() {
-  const nome = document.getElementById("nome").value;
-  const spessore = document.getElementById("spessore").value;
-  const lunghezza = document.getElementById("lunghezza").value;
-  const larghezza = document.getElementById("larghezza").value;
+  const nome = encodeURIComponent(document.getElementById("nome").value);
+  const spessore = encodeURIComponent(document.getElementById("spessore").value);
+  const lunghezza = encodeURIComponent(document.getElementById("lunghezza").value);
+  const larghezza = encodeURIComponent(document.getElementById("larghezza").value);
 
-  const res = await fetch(`https://scaffali-app1.onrender.com/api/search?nome=${nome}&spessore=${spessore}&lunghezza=${lunghezza}&larghezza=${larghezza}`);
-  const data = await res.json();
+  try {
+    const res = await fetch(`${API_BASE}/api/search?nome=${nome}&spessore=${spessore}&lunghezza=${lunghezza}&larghezza=${larghezza}`);
+    const data = await res.json();
 
-  const container = document.getElementById("results");
-  container.innerHTML = "";
+    if(!Array.isArray(data)){
+      console.error("Errore API:", data);
+      return;
+    }
 
-  data.forEach(p => {
-    container.innerHTML += `
-      <div class="bg-white p-4 rounded shadow cursor-pointer"
-           onclick="apriScaffale(${p.fila}, '${p.scaffale}')">
+    const container = document.getElementById("results");
+    container.innerHTML = "";
+
+    data.forEach(p => {
+      const safeScaffale = p.scaffale.replace(/'/g, "\\'");
+      const div = document.createElement('div');
+      div.className = "bg-white p-4 rounded shadow cursor-pointer";
+      div.innerHTML = `
         <h3 class="font-bold">${p.nome}</h3>
         <p>${p.lunghezza}x${p.larghezza} - ${p.spessore}mm</p>
         <p class="text-red-600 font-bold mt-2">Posizione: ${p.fila}${p.scaffale}</p>
-      </div>
-    `;
-  });
+      `;
+      div.addEventListener('click', () => apriScaffale(p.fila, p.scaffale));
+      container.appendChild(div);
+    });
+
+  } catch(e) {
+    console.error("Fetch error:", e);
+  }
 }
 
-document.querySelectorAll("input").forEach(i => i.addEventListener("input", search));
-
+// --- FUNZIONE APRI SCAFFALE ---
 async function apriScaffale(fila, scaffale) {
   document.getElementById("scaffaleInput").value = fila + scaffale;
-  caricaScaffale();
+  await caricaScaffale();
 }
 
+// --- FUNZIONE CARICA SCAFFALE ---
 async function caricaScaffale() {
   const val = document.getElementById("scaffaleInput").value.toLowerCase();
+  if(!val || val.length < 2) return alert("Formato scaffale non valido");
+
   const fila = parseInt(val[0]);
   const scaffale = val[1];
 
-  const res = await fetch(`https://scaffali-app1.onrender.com/api/scaffale/${fila}/${scaffale}`);
-  if (!res.ok) {
-    alert("Scaffale non valido");
-    return;
-  }
+  try {
+    const res = await fetch(`${API_BASE}/api/scaffale/${fila}/${scaffale}`);
+    if(!res.ok) return alert("Scaffale non valido");
 
-  const data = await res.json();
-  const container = document.getElementById("scaffaleProdotti");
+    const data = await res.json();
+    const container = document.getElementById("scaffaleProdotti");
+    container.innerHTML = `<h3 class="text-2xl font-bold mb-4">Scaffale ${fila}${scaffale}</h3>`;
 
-  container.innerHTML = `<h3 class="text-2xl font-bold mb-4">Scaffale ${fila}${scaffale}</h3>`;
-
-  data.forEach(p => {
-    container.innerHTML += `
-      <div class="bg-white p-3 rounded shadow mb-2 flex justify-between items-center">
+    data.forEach(p => {
+      const div = document.createElement('div');
+      div.className = "bg-white p-3 rounded shadow mb-2 flex justify-between items-center";
+      div.innerHTML = `
         <div>
           <strong>${p.nome}</strong>
           <div>${p.lunghezza}x${p.larghezza} - ${p.spessore}mm</div>
           <div>Ripiano: ${p.ripiano}</div>
         </div>
-        <button onclick="elimina(${p.id})" class="bg-red-500 text-white px-2 py-1 rounded">Elimina</button>
-      </div>
-    `;
-  });
+        <button class="bg-red-500 text-white px-2 py-1 rounded">Elimina</button>
+      `;
+      div.querySelector('button').addEventListener('click', () => elimina(p.id));
+      container.appendChild(div);
+    });
+
+  } catch(e) {
+    console.error("Fetch error:", e);
+    alert("Errore nel caricamento dello scaffale");
+  }
 }
 
+// --- FUNZIONE ELIMINA ---
 async function elimina(id){
-  await fetch(https://scaffali-app1.onrender.com/api/${id}`,{method:"DELETE"});
-  caricaScaffale();
+  try {
+    const res = await fetch(`${API_BASE}/api/${id}`, { method: "DELETE" });
+    if(res.ok) await caricaScaffale();
+  } catch(e) {
+    console.error("Errore eliminazione:", e);
+  }
 }
+
+// --- EVENTI ---
+document.querySelectorAll("input").forEach(i => i.addEventListener("input", search));
+document.getElementById("apriBtn").addEventListener("click", caricaScaffale);
+
+// --- RICERCA INIZIALE ---
+window.addEventListener("DOMContentLoaded", search);
 </script>
 
 </body>
 </html>
+
+
