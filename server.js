@@ -13,7 +13,7 @@ app.use(express.static("public")); // serve il frontend
 
 // ================= DATABASE =================
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL, // session pooler IPv4 di Supabase
+  connectionString: process.env.postgresql://postgres.ezgtwshpfkeahtxtrxlo:ugentolegno@aws-1-eu-west-1.pooler.supabase.com:5432/postgres, // session pooler IPv4 di Supabase
   ssl: { rejectUnauthorized: false } // SSL richiesto da Supabase
 });
 
