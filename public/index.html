@@ -35,7 +35,7 @@ async function search() {
   const lunghezza = document.getElementById("lunghezza").value;
   const larghezza = document.getElementById("larghezza").value;
 
-  const res = await fetch(`/api/search?nome=${nome}&spessore=${spessore}&lunghezza=${lunghezza}&larghezza=${larghezza}`);
+  const res = await fetch(`https://scaffali-app1.onrender.com/api/search?nome=${nome}&spessore=${spessore}&lunghezza=${lunghezza}&larghezza=${larghezza}`);
   const data = await res.json();
 
   const container = document.getElementById("results");
@@ -65,7 +65,7 @@ async function caricaScaffale() {
   const fila = parseInt(val[0]);
   const scaffale = val[1];
 
-  const res = await fetch(`/api/scaffale/${fila}/${scaffale}`);
+  const res = await fetch(`https://scaffali-app1.onrender.com/api/scaffale/${fila}/${scaffale}`);
   if (!res.ok) {
     alert("Scaffale non valido");
     return;
@@ -91,7 +91,7 @@ async function caricaScaffale() {
 }
 
 async function elimina(id){
-  await fetch(`/api/${id}`,{method:"DELETE"});
+  await fetch(https://scaffali-app1.onrender.com/api/${id}`,{method:"DELETE"});
   caricaScaffale();
 }
 </script>
