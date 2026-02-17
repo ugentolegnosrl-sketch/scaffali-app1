@@ -1,60 +1,71 @@
 import express from "express"
+import pkg from "pg"
 import dotenv from "dotenv"
-import { createClient } from "@supabase/supabase-js"
 import path from "path"
 import { fileURLToPath } from "url"
 
 dotenv.config()
+
+const { Pool } = pkg
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+})
 
 const app = express()
 app.use(express.json())
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-
 app.use(express.static(path.join(__dirname, "public")))
 
-const supabase = createClient(process.env.SUPABASE_URL, null)
-
-/* ================= API ================= */
+/* ================== API ================== */
 
 // GET tutti prodotti
 app.get("/api/prodotti", async (req, res) => {
-  const { data, error } = await supabase.from("prodotti").select("*")
-  if (error) return res.status(500).json(error)
-  res.json(data)
+  const { rows } = await pool.query("SELECT * FROM prodotti ORDER BY fila, scaffale, ripiano")
+  res.json(rows)
 })
 
-// INSERT
+// POST nuovo prodotto
 app.post("/api/prodotti", async (req, res) => {
-  const { data, error } = await supabase.from("prodotti").insert(req.body).select()
-  if (error) return res.status(500).json(error)
-  res.json(data[0])
+  const { nome, lunghezza, larghezza, spessore, fila, scaffale, ripiano } = req.body
+
+  const { rows } = await pool.query(
+    `INSERT INTO prodotti (nome, lunghezza, larghezza, spessore, fila, scaffale, ripiano)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)
+     RETURNING *`,
+    [nome, lunghezza, larghezza, spessore, fila, scaffale, ripiano]
+  )
+
+  res.json(rows[0])
 })
 
-// UPDATE
+// PUT modifica
 app.put("/api/prodotti/:id", async (req, res) => {
-  const { data, error } = await supabase
-    .from("prodotti")
-    .update(req.body)
-    .eq("id", req.params.id)
-    .select()
+  const { id } = req.params
+  const { nome, lunghezza, larghezza, spessore, fila, scaffale, ripiano } = req.body
 
-  if (error) return res.status(500).json(error)
-  res.json(data[0])
+  const { rows } = await pool.query(
+    `UPDATE prodotti
+     SET nome=$1, lunghezza=$2, larghezza=$3, spessore=$4,
+         fila=$5, scaffale=$6, ripiano=$7
+     WHERE id=$8
+     RETURNING *`,
+    [nome, lunghezza, larghezza, spessore, fila, scaffale, ripiano, id]
+  )
+
+  res.json(rows[0])
 })
 
 // DELETE
 app.delete("/api/prodotti/:id", async (req, res) => {
-  const { error } = await supabase
-    .from("prodotti")
-    .delete()
-    .eq("id", req.params.id)
-
-  if (error) return res.status(500).json(error)
+  const { id } = req.params
+  await pool.query("DELETE FROM prodotti WHERE id=$1", [id])
   res.json({ success: true })
 })
 
-app.listen(process.env.PORT, () =>
-  console.log("Server avviato su porta", process.env.PORT)
-)
+/* ================== START ================== */
+
+const PORT = process.env.PORT || 3000
+app.listen(PORT, () => console.log("Server attivo su porta", PORT))
