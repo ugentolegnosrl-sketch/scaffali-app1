@@ -27,107 +27,141 @@
 <div id="scaffaleProdotti" class="mt-6"></div>
 
 <script>
-const API_BASE = 'https://scaffali-app1.onrender.com';
 
-// --- FUNZIONE DI RICERCA ---
-async function search() {
-  const nome = encodeURIComponent(document.getElementById("nome").value);
-  const spessore = encodeURIComponent(document.getElementById("spessore").value);
-  const lunghezza = encodeURIComponent(document.getElementById("lunghezza").value);
-  const larghezza = encodeURIComponent(document.getElementById("larghezza").value);
+let prodotti = []
+let scaffaleCorrente = null
 
-  try {
-    const res = await fetch(`${API_BASE}/api/search?nome=${nome}&spessore=${spessore}&lunghezza=${lunghezza}&larghezza=${larghezza}`);
-    const data = await res.json();
+async function caricaProdotti(){
+  const res = await fetch("/api/prodotti")
+  prodotti = await res.json()
+}
+caricaProdotti()
 
-    if(!Array.isArray(data)){
-      console.error("Errore API:", data);
-      return;
-    }
+/* ================= RICERCA ================= */
 
-    const container = document.getElementById("results");
-    container.innerHTML = "";
+const fSp = document.getElementById("fSpessore")
+const fDesc = document.getElementById("fDescrizione")
+const fLu = document.getElementById("fLunghezza")
+const fLa = document.getElementById("fLarghezza")
 
-    data.forEach(p => {
-      const safeScaffale = p.scaffale.replace(/'/g, "\\'");
-      const div = document.createElement('div');
-      div.className = "bg-white p-4 rounded shadow cursor-pointer";
-      div.innerHTML = `
-        <h3 class="font-bold">${p.nome}</h3>
-        <p>${p.lunghezza}x${p.larghezza} - ${p.spessore}mm</p>
-        <p class="text-red-600 font-bold mt-2">Posizione: ${p.fila}${p.scaffale}</p>
-      `;
-      div.addEventListener('click', () => apriScaffale(p.fila, p.scaffale));
-      container.appendChild(div);
-    });
+;[fSp,fDesc,fLu,fLa].forEach(i=>i.addEventListener("input", filtra))
 
-  } catch(e) {
-    console.error("Fetch error:", e);
-  }
+function filtra(){
+
+let sp = fSp.value
+let desc = fDesc.value.toLowerCase()
+let lung = fLu.value
+let larg = fLa.value
+
+let lista = prodotti.filter(p=>{
+let ok = true
+
+if(sp) ok = ok && p.spessore == sp
+if(desc) ok = ok && p.nome.toLowerCase().includes(desc)
+if(lung) ok = ok && p.lunghezza == lung
+if(larg) ok = ok && p.larghezza == larg
+
+return ok
+})
+
+renderRisultati(lista)
 }
 
-// --- FUNZIONE APRI SCAFFALE ---
-async function apriScaffale(fila, scaffale) {
-  document.getElementById("scaffaleInput").value = fila + scaffale;
-  await caricaScaffale();
+function renderRisultati(lista){
+let c = document.getElementById("risultati")
+c.innerHTML = ""
+
+lista.forEach(p=>{
+c.innerHTML += `
+<div onclick="apriScaffaleDiretto(${p.fila},'${p.scaffale}')"
+class="bg-gray-50 p-4 rounded-xl shadow hover:bg-blue-50 cursor-pointer">
+<div class="font-semibold">${p.nome}</div>
+<div>${p.lunghezza}x${p.larghezza} | ${p.spessore}mm</div>
+<div class="text-blue-600 font-bold mt-2">
+Posizione: ${p.fila}${p.scaffale.toUpperCase()}
+</div>
+</div>`
+})
 }
 
-// --- FUNZIONE CARICA SCAFFALE ---
-async function caricaScaffale() {
-  const val = document.getElementById("scaffaleInput").value.toLowerCase();
-  if(!val || val.length < 2) return alert("Formato scaffale non valido");
+/* ================= SCAFFALE ================= */
 
-  const fila = parseInt(val[0]);
-  const scaffale = val[1];
+function apriScaffaleDiretto(fila,scaffale){
+let lista = prodotti.filter(p=>p.fila==fila && p.scaffale==scaffale)
 
-  try {
-    const res = await fetch(`${API_BASE}/api/scaffale/${fila}/${scaffale}`);
-    if(!res.ok) return alert("Scaffale non valido");
-
-    const data = await res.json();
-    const container = document.getElementById("scaffaleProdotti");
-    container.innerHTML = `<h3 class="text-2xl font-bold mb-4">Scaffale ${fila}${scaffale}</h3>`;
-
-    data.forEach(p => {
-      const div = document.createElement('div');
-      div.className = "bg-white p-3 rounded shadow mb-2 flex justify-between items-center";
-      div.innerHTML = `
-        <div>
-          <strong>${p.nome}</strong>
-          <div>${p.lunghezza}x${p.larghezza} - ${p.spessore}mm</div>
-          <div>Ripiano: ${p.ripiano}</div>
-        </div>
-        <button class="bg-red-500 text-white px-2 py-1 rounded">Elimina</button>
-      `;
-      div.querySelector('button').addEventListener('click', () => elimina(p.id));
-      container.appendChild(div);
-    });
-
-  } catch(e) {
-    console.error("Fetch error:", e);
-    alert("Errore nel caricamento dello scaffale");
-  }
+if(lista.length===0){
+document.getElementById("errore").innerText="Scaffale vuoto"
+return
 }
 
-// --- FUNZIONE ELIMINA ---
+document.getElementById("errore").innerText=""
+document.getElementById("titoloScaffale").innerText =
+`Scaffale ${fila}${scaffale.toUpperCase()}`
+
+scaffaleCorrente = {fila,scaffale}
+
+lista.sort((a,b)=>a.ripiano-b.ripiano)
+renderLista(lista)
+}
+
+function renderLista(lista){
+let container = document.getElementById("listaScaffale")
+container.innerHTML=""
+
+lista.forEach(p=>{
+container.innerHTML+=`
+<div class="bg-gray-100 p-3 rounded flex justify-between items-center">
+<div>
+<b>${p.nome}</b> (${p.lunghezza}x${p.larghezza} | ${p.spessore}mm) - Ripiano ${p.ripiano}
+</div>
+<div class="flex gap-1">
+<button onclick="su(${p.id})" class="bg-green-500 text-white px-2 rounded">⬆</button>
+<button onclick="giu(${p.id})" class="bg-green-500 text-white px-2 rounded">⬇</button>
+<button onclick="elimina(${p.id})" class="bg-red-500 text-white px-2 rounded">❌</button>
+</div>
+</div>`
+})
+}
+
+/* ================= AZIONI DATABASE ================= */
+
 async function elimina(id){
-  try {
-    const res = await fetch(`${API_BASE}/api/${id}`, { method: "DELETE" });
-    if(res.ok) await caricaScaffale();
-  } catch(e) {
-    console.error("Errore eliminazione:", e);
-  }
+await fetch("/api/prodotti/"+id,{method:"DELETE"})
+await caricaProdotti()
+apriScaffaleDiretto(scaffaleCorrente.fila,scaffaleCorrente.scaffale)
 }
 
-// --- EVENTI ---
-document.querySelectorAll("input").forEach(i => i.addEventListener("input", search));
-document.getElementById("apriBtn").addEventListener("click", caricaScaffale);
+async function su(id){
+let p = prodotti.find(x=>x.id===id)
+if(p.ripiano>1){
+p.ripiano--
+await fetch("/api/prodotti/"+id,{
+method:"PUT",
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({ripiano:p.ripiano})
+})
+}
+await caricaProdotti()
+apriScaffaleDiretto(p.fila,p.scaffale)
+}
 
-// --- RICERCA INIZIALE ---
-window.addEventListener("DOMContentLoaded", search);
+async function giu(id){
+let p = prodotti.find(x=>x.id===id)
+p.ripiano++
+await fetch("/api/prodotti/"+id,{
+method:"PUT",
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({ripiano:p.ripiano})
+})
+await caricaProdotti()
+apriScaffaleDiretto(p.fila,p.scaffale)
+}
+
 </script>
+
 
 </body>
 </html>
+
 
 
