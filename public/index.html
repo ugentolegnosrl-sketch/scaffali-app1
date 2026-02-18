@@ -1,34 +1,59 @@
-<!DOCTYPE html><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<script src="https://cdn.tailwindcss.com"></script>
 <title>Gestione Scaffali</title>
+<script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 p-6">
 
-<h1 class="text-3xl font-bold mb-6">Gestione Scaffali</h1>
+<body class="bg-gray-100 min-h-screen p-6">
 
-<div class="grid grid-cols-4 gap-4 mb-4">
-  <input id="nome" placeholder="Descrizione" class="p-2 border rounded">
-  <input id="spessore" placeholder="Spessore" class="p-2 border rounded">
-  <input id="lunghezza" placeholder="Lunghezza" class="p-2 border rounded">
-  <input id="larghezza" placeholder="Larghezza" class="p-2 border rounded">
+<div class="max-w-7xl mx-auto space-y-10">
+
+<h1 class="text-3xl font-bold text-center">Gestione Scaffali</h1>
+
+<!-- ================= RICERCA ================= -->
+<div class="bg-white p-6 rounded-xl shadow space-y-4">
+<h2 class="text-xl font-semibold">🔎 Ricerca Posizione</h2>
+
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+<input id="fSpessore" type="number" placeholder="Spessore" class="border p-2 rounded">
+<input id="fDescrizione" type="text" placeholder="Descrizione" class="border p-2 rounded">
+<input id="fLunghezza" type="number" placeholder="Lunghezza" class="border p-2 rounded">
+<input id="fLarghezza" type="number" placeholder="Larghezza" class="border p-2 rounded">
 </div>
 
-<div id="results" class="grid grid-cols-3 gap-4"></div>
+<div id="risultati" class="grid md:grid-cols-3 gap-4 mt-4"></div>
+</div>
 
-<hr class="my-8">
+<!-- ================= SCAFFALI ================= -->
+<div class="bg-white p-6 rounded-xl shadow space-y-4">
+<h2 class="text-xl font-semibold">📦 Aggiorna Scaffali</h2>
 
-<h2 class="text-xl font-bold mb-4">Aggiorna Scaffale</h2>
-<input id="scaffaleInput" placeholder="Es: 1b" class="p-2 border rounded">
-<button id="apriBtn" class="bg-blue-500 text-white px-4 py-2 rounded">Apri</button>
+<div class="flex gap-2">
+<input id="inputScaffale" type="text" placeholder="Es: 1b"
+class="border p-2 rounded w-32">
+<button onclick="apriScaffale()" class="bg-blue-600 text-white px-4 rounded">
+Apri
+</button>
+<button onclick="aggiungiProdotto()" class="bg-green-600 text-white px-4 rounded">
+➕ Aggiungi
+</button>
+</div>
 
-<div id="scaffaleProdotti" class="mt-6"></div>
+<div id="errore" class="text-red-600 font-medium"></div>
+<h3 id="titoloScaffale" class="text-lg font-bold"></h3>
+<div id="listaScaffale" class="space-y-2"></div>
+
+</div>
+</div>
 
 <script>
+
 let prodotti = []
 let scaffaleCorrente = null
+
+/* ================= LOAD ================= */
 
 async function caricaProdotti(){
   const res = await fetch("/prodotti")
@@ -46,6 +71,7 @@ const fLa = document.getElementById("fLarghezza")
 ;[fSp,fDesc,fLu,fLa].forEach(i=>i.addEventListener("input", filtra))
 
 function filtra(){
+
 let sp = fSp.value
 let desc = fDesc.value.toLowerCase()
 let lung = fLu.value
@@ -59,12 +85,14 @@ if(lung) ok = ok && p.lunghezza == lung
 if(larg) ok = ok && p.larghezza == larg
 return ok
 })
+
 renderRisultati(lista)
 }
 
 function renderRisultati(lista){
 let c = document.getElementById("risultati")
 c.innerHTML = ""
+
 lista.forEach(p=>{
 c.innerHTML += `
 <div onclick="apriScaffaleDiretto(${p.fila},'${p.scaffale}')"
@@ -78,7 +106,76 @@ Posizione: ${p.fila}${p.scaffale.toUpperCase()}
 })
 }
 
-/* ================= CRUD ================= */
+/* ================= SCAFFALE ================= */
+
+function apriScaffale(){
+let input = document.getElementById("inputScaffale").value.trim().toLowerCase()
+let match = input.match(/^([1-4])([a-z])$/)
+
+if(!match){
+document.getElementById("errore").innerText = "Formato non valido"
+return
+}
+
+apriScaffaleDiretto(parseInt(match[1]),match[2])
+}
+
+function apriScaffaleDiretto(fila,scaffale){
+
+let lista = prodotti.filter(p=>p.fila==fila && p.scaffale==scaffale)
+
+if(lista.length===0){
+document.getElementById("errore").innerText="Scaffale vuoto"
+document.getElementById("titoloScaffale").innerText=""
+document.getElementById("listaScaffale").innerHTML=""
+return
+}
+
+document.getElementById("errore").innerText=""
+document.getElementById("titoloScaffale").innerText =
+`Scaffale ${fila}${scaffale.toUpperCase()}`
+
+scaffaleCorrente = {fila,scaffale}
+
+lista.sort((a,b)=>a.ripiano-b.ripiano)
+renderLista(lista)
+}
+
+function renderLista(lista){
+
+let container = document.getElementById("listaScaffale")
+container.innerHTML=""
+
+lista.forEach(p=>{
+container.innerHTML+=`
+<div class="bg-gray-100 p-3 rounded flex justify-between items-center">
+<div>
+<b>${p.nome}</b> (${p.lunghezza}x${p.larghezza} | ${p.spessore}mm) - Ripiano ${p.ripiano}
+</div>
+
+<div class="flex gap-1">
+
+<button onclick="su(${p.id})"
+class="bg-green-500 text-white px-2 rounded">⬆</button>
+
+<button onclick="giu(${p.id})"
+class="bg-green-500 text-white px-2 rounded">⬇</button>
+
+<button onclick="modifica(${p.id})"
+class="bg-blue-500 text-white px-2 rounded">✏</button>
+
+<button onclick="sposta(${p.id})"
+class="bg-yellow-500 text-white px-2 rounded">🔁</button>
+
+<button onclick="elimina(${p.id})"
+class="bg-red-500 text-white px-2 rounded">❌</button>
+
+</div>
+</div>`
+})
+}
+
+/* ================= AZIONI CRUD ================= */
 
 async function elimina(id){
   await fetch(`/prodotti/${id}`,{ method:"DELETE"})
@@ -86,8 +183,56 @@ async function elimina(id){
   apriScaffaleDiretto(scaffaleCorrente.fila,scaffaleCorrente.scaffale)
 }
 
+async function su(id){
+let p = prodotti.find(x=>x.id===id)
+if(p.ripiano>1) p.ripiano--
+await aggiorna(p)
+}
+
+async function giu(id){
+let p = prodotti.find(x=>x.id===id)
+p.ripiano++
+await aggiorna(p)
+}
+
+async function modifica(id){
+let p = prodotti.find(x=>x.id===id)
+
+let nome = prompt("Nuovo nome:",p.nome)
+let lung = prompt("Nuova lunghezza:",p.lunghezza)
+let larg = prompt("Nuova larghezza:",p.larghezza)
+let sp = prompt("Nuovo spessore:",p.spessore)
+
+p.nome = nome
+p.lunghezza = parseInt(lung)
+p.larghezza = parseInt(larg)
+p.spessore = parseInt(sp)
+
+await aggiorna(p)
+}
+
+async function sposta(id){
+let nuova = prompt("Nuova posizione (es 2c)")
+if(!nuova) return
+
+let match = nuova.toLowerCase().match(/^([1-4])([a-z])$/)
+if(!match){ alert("Formato non valido"); return }
+
+let p = prodotti.find(x=>x.id===id)
+
+p.fila = parseInt(match[1])
+p.scaffale = match[2]
+p.ripiano = getMaxRipiano(p.fila,p.scaffale)+1
+
+await aggiorna(p)
+}
+
 async function aggiungiProdotto(){
-if(!scaffaleCorrente){ alert("Apri prima uno scaffale"); return }
+
+if(!scaffaleCorrente){
+alert("Apri prima uno scaffale")
+return
+}
 
 let nome = prompt("Nome prodotto:")
 let lung = prompt("Lunghezza:")
@@ -113,17 +258,24 @@ ripiano
 await caricaProdotti()
 apriScaffaleDiretto(scaffaleCorrente.fila,scaffaleCorrente.scaffale)
 }
+
+async function aggiorna(p){
+await fetch(`/prodotti/${p.id}`,{
+method:"PUT",
+headers:{ "Content-Type":"application/json"},
+body: JSON.stringify(p)
+})
+await caricaProdotti()
+apriScaffaleDiretto(p.fila,p.scaffale)
+}
+
+function getMaxRipiano(fila,scaffale){
+let lista = prodotti.filter(p=>p.fila==fila && p.scaffale==scaffale)
+if(lista.length===0) return 0
+return Math.max(...lista.map(p=>p.ripiano))
+}
+
 </script>
-
-
 
 </body>
 </html>
-
-
-
-
-
-
-
-
