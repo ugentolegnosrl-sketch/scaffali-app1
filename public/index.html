@@ -26,142 +26,92 @@
 
 <div id="scaffaleProdotti" class="mt-6"></div>
 
-<script defer>
+<script>
 let prodotti = []
 let scaffaleCorrente = null
 
-/* ================= CARICA ================= */
-
 async function caricaProdotti(){
-  const res = await fetch("/api/prodotti")
+  const res = await fetch("/prodotti")
   prodotti = await res.json()
 }
-
-window.addEventListener("load", async () => {
-  await caricaProdotti()
-  collegaEventi()
-})
-
-function collegaEventi(){
-  const nome = document.getElementById("nome")
-  const spessore = document.getElementById("spessore")
-  const lunghezza = document.getElementById("lunghezza")
-  const larghezza = document.getElementById("larghezza")
-
-  ;[nome, spessore, lunghezza, larghezza]
-    .forEach(el => el.addEventListener("input", filtra))
-
-  document.getElementById("apriBtn")
-    .addEventListener("click", apriScaffale)
-}
+caricaProdotti()
 
 /* ================= RICERCA ================= */
 
+const fSp = document.getElementById("fSpessore")
+const fDesc = document.getElementById("fDescrizione")
+const fLu = document.getElementById("fLunghezza")
+const fLa = document.getElementById("fLarghezza")
+
+;[fSp,fDesc,fLu,fLa].forEach(i=>i.addEventListener("input", filtra))
+
 function filtra(){
+let sp = fSp.value
+let desc = fDesc.value.toLowerCase()
+let lung = fLu.value
+let larg = fLa.value
 
-  const nome = document.getElementById("nome").value.toLowerCase()
-  const spessore = document.getElementById("spessore").value
-  const lunghezza = document.getElementById("lunghezza").value
-  const larghezza = document.getElementById("larghezza").value
-
-  let lista = prodotti.filter(p=>{
-    let ok = true
-
-    if(nome) ok = ok && p.nome.toLowerCase().includes(nome)
-    if(spessore) ok = ok && p.spessore == spessore
-    if(lunghezza) ok = ok && p.lunghezza == lunghezza
-    if(larghezza) ok = ok && p.larghezza == larghezza
-
-    return ok
-  })
-
-  renderRisultati(lista)
+let lista = prodotti.filter(p=>{
+let ok = true
+if(sp) ok = ok && p.spessore == sp
+if(desc) ok = ok && p.nome.toLowerCase().includes(desc)
+if(lung) ok = ok && p.lunghezza == lung
+if(larg) ok = ok && p.larghezza == larg
+return ok
+})
+renderRisultati(lista)
 }
 
 function renderRisultati(lista){
-  const container = document.getElementById("results")
-  container.innerHTML = ""
-
-  lista.forEach(p=>{
-    container.innerHTML += `
-      <div onclick="apriScaffaleDiretto(${p.fila},'${p.scaffale}')"
-      class="bg-gray-50 p-4 rounded-xl shadow hover:bg-blue-50 cursor-pointer transition">
-        <div class="font-semibold">${p.nome}</div>
-        <div>${p.lunghezza}x${p.larghezza} | ${p.spessore}mm</div>
-        <div class="text-blue-600 font-bold mt-2">
-          Posizione: ${p.fila}${p.scaffale.toUpperCase()}
-        </div>
-      </div>
-    `
-  })
+let c = document.getElementById("risultati")
+c.innerHTML = ""
+lista.forEach(p=>{
+c.innerHTML += `
+<div onclick="apriScaffaleDiretto(${p.fila},'${p.scaffale}')"
+class="bg-gray-50 p-4 rounded-xl shadow hover:bg-blue-50 cursor-pointer transition">
+<div class="font-semibold">${p.nome}</div>
+<div>${p.lunghezza}x${p.larghezza} | ${p.spessore}mm</div>
+<div class="text-blue-600 font-bold mt-2">
+Posizione: ${p.fila}${p.scaffale.toUpperCase()}
+</div>
+</div>`
+})
 }
 
-/* ================= SCAFFALE ================= */
-
-async function apriScaffale(){
-  const input = document.getElementById("scaffaleInput").value.trim().toLowerCase()
-  const match = input.match(/^([1-9])([a-z])$/)
-
-  if(!match){
-    alert("Formato non valido. Es: 1b")
-    return
-  }
-
-  apriScaffaleDiretto(parseInt(match[1]), match[2])
-}
-
-async function apriScaffaleDiretto(fila, scaffale){
-
-  await caricaProdotti()
-
-  let lista = prodotti.filter(p =>
-    p.fila == fila && p.scaffale == scaffale
-  )
-
-  scaffaleCorrente = { fila, scaffale }
-
-  lista.sort((a,b)=>a.ripiano-b.ripiano)
-  renderLista(lista)
-}
-
-function renderLista(lista){
-
-  const container = document.getElementById("scaffaleProdotti")
-  container.innerHTML = ""
-
-  if(lista.length === 0){
-    container.innerHTML = "<p class='text-gray-500'>Scaffale vuoto</p>"
-    return
-  }
-
-  lista.forEach(p=>{
-    container.innerHTML += `
-      <div class="bg-gray-100 p-3 rounded flex justify-between items-center mb-2">
-        <div>
-          <b>${p.nome}</b>
-          (${p.lunghezza}x${p.larghezza} | ${p.spessore}mm)
-          - Ripiano ${p.ripiano}
-        </div>
-        <button onclick="elimina(${p.id})"
-          class="bg-red-500 text-white px-2 rounded">
-          ❌
-        </button>
-      </div>
-    `
-  })
-}
-
-/* ================= DELETE ================= */
+/* ================= CRUD ================= */
 
 async function elimina(id){
-  await fetch("/api/prodotti/"+id, { method:"DELETE" })
+  await fetch(`/prodotti/${id}`,{ method:"DELETE"})
+  await caricaProdotti()
+  apriScaffaleDiretto(scaffaleCorrente.fila,scaffaleCorrente.scaffale)
+}
 
-  if(scaffaleCorrente){
-    apriScaffaleDiretto(
-      scaffaleCorrente.fila,
-      scaffaleCorrente.scaffale
-    )
-  }
+async function aggiungiProdotto(){
+if(!scaffaleCorrente){ alert("Apri prima uno scaffale"); return }
+
+let nome = prompt("Nome prodotto:")
+let lung = prompt("Lunghezza:")
+let larg = prompt("Larghezza:")
+let sp = prompt("Spessore:")
+
+let ripiano = getMaxRipiano(scaffaleCorrente.fila,scaffaleCorrente.scaffale)+1
+
+await fetch("/prodotti",{
+method:"POST",
+headers:{ "Content-Type":"application/json"},
+body: JSON.stringify({
+nome,
+lunghezza:parseInt(lung),
+larghezza:parseInt(larg),
+spessore:parseInt(sp),
+fila:scaffaleCorrente.fila,
+scaffale:scaffaleCorrente.scaffale,
+ripiano
+})
+})
+
+await caricaProdotti()
+apriScaffaleDiretto(scaffaleCorrente.fila,scaffaleCorrente.scaffale)
 }
 </script>
 
@@ -169,6 +119,7 @@ async function elimina(id){
 
 </body>
 </html>
+
 
 
 
