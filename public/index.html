@@ -2,48 +2,50 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gestione Scaffali</title>
 <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
-<body class="bg-gray-100 min-h-screen p-6">
+<body class="bg-gray-100 min-h-screen p-4 md:p-6">
 
-<div class="max-w-7xl mx-auto space-y-10">
+<div class="max-w-7xl mx-auto space-y-8">
 
-<h1 class="text-3xl font-bold text-center">Gestione Scaffali</h1>
+<h1 class="text-2xl md:text-3xl font-bold text-center">Gestione Scaffali</h1>
 
 <!-- ================= RICERCA ================= -->
-<div class="bg-white p-6 rounded-xl shadow space-y-4">
-<h2 class="text-xl font-semibold">🔎 Ricerca Posizione</h2>
+<div class="bg-white p-4 md:p-6 rounded-xl shadow space-y-4">
+<h2 class="text-lg md:text-xl font-semibold">🔎 Ricerca Posizione</h2>
 
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-<input id="fSpessore" type="number" placeholder="Spessore" class="border p-2 rounded">
-<input id="fDescrizione" type="text" placeholder="Descrizione" class="border p-2 rounded">
-<input id="fLunghezza" type="number" placeholder="Lunghezza" class="border p-2 rounded">
-<input id="fLarghezza" type="number" placeholder="Larghezza" class="border p-2 rounded">
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+<input id="fSpessore" type="number" placeholder="Spessore" class="border p-2 rounded w-full">
+<input id="fDescrizione" type="text" placeholder="Descrizione" class="border p-2 rounded w-full">
+<input id="fLunghezza" type="number" placeholder="Lunghezza" class="border p-2 rounded w-full">
+<input id="fLarghezza" type="number" placeholder="Larghezza" class="border p-2 rounded w-full">
 </div>
 
-<div id="risultati" class="grid md:grid-cols-3 gap-4 mt-4"></div>
+<div id="suggestions" class="border rounded shadow bg-white hidden mt-1"></div>
+<div id="risultati" class="grid sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4"></div>
 </div>
 
 <!-- ================= SCAFFALI ================= -->
-<div class="bg-white p-6 rounded-xl shadow space-y-4">
-<h2 class="text-xl font-semibold">📦 Aggiorna Scaffali</h2>
+<div class="bg-white p-4 md:p-6 rounded-xl shadow space-y-4">
+<h2 class="text-lg md:text-xl font-semibold">📦 Aggiorna Scaffali</h2>
 
-<div class="flex gap-2">
+<div class="flex flex-col sm:flex-row gap-2">
 <input id="inputScaffale" type="text" placeholder="Es: 1b"
-class="border p-2 rounded w-32">
-<button onclick="apriScaffale()" class="bg-blue-600 text-white px-4 rounded">
+class="border p-2 rounded w-full sm:w-32">
+<button onclick="apriScaffale()" class="bg-blue-600 text-white px-4 py-2 rounded w-full sm:w-auto">
 Apri
 </button>
-<button onclick="aggiungiProdotto()" class="bg-green-600 text-white px-4 rounded">
+<button onclick="aggiungiProdotto()" class="bg-green-600 text-white px-4 py-2 rounded w-full sm:w-auto">
 ➕ Aggiungi
 </button>
 </div>
 
-<div id="errore" class="text-red-600 font-medium"></div>
+<div id="errore" class="text-blue-600 font-medium"></div>
 <h3 id="titoloScaffale" class="text-lg font-bold"></h3>
-<div id="listaScaffale" class="space-y-2"></div>
+<div id="listaScaffale" class="space-y-3"></div>
 
 </div>
 </div>
@@ -61,6 +63,14 @@ async function caricaProdotti(){
 }
 caricaProdotti()
 
+/* ================= CHIUDI SUGGERIMENTI MOBILE ================= */
+
+document.addEventListener("click", function(e){
+  if(!e.target.closest("#fDescrizione")){
+    document.getElementById("suggestions").classList.add("hidden")
+  }
+})
+
 /* ================= RICERCA ================= */
 
 const fSp = document.getElementById("fSpessore")
@@ -69,24 +79,54 @@ const fLu = document.getElementById("fLunghezza")
 const fLa = document.getElementById("fLarghezza")
 
 ;[fSp,fDesc,fLu,fLa].forEach(i=>i.addEventListener("input", filtra))
+fDesc.addEventListener("input", suggerimenti)
+
+function suggerimenti(){
+
+let val = fDesc.value.toLowerCase()
+let box = document.getElementById("suggestions")
+if(!val){ box.classList.add("hidden"); return }
+
+let nomi = [...new Set(
+prodotti
+.filter(p=>p.nome.toLowerCase().includes(val))
+.map(p=>p.nome)
+)].slice(0,5)
+
+if(nomi.length===0){ box.classList.add("hidden"); return }
+
+box.innerHTML = nomi.map(n=>
+`<div class="p-2 hover:bg-gray-100 cursor-pointer"
+onclick="selezionaSuggerimento('${n.replace(/'/g,"\\'")}')">
+${n}
+</div>`).join("")
+
+box.classList.remove("hidden")
+}
+
+function selezionaSuggerimento(nome){
+fDesc.value = nome
+document.getElementById("suggestions").classList.add("hidden")
+filtra()
+}
 
 function filtra(){
 
-let sp = fSp.value
-let desc = fDesc.value.toLowerCase()
-let lung = fLu.value
-let larg = fLa.value
+  let sp = fSp.value
+  let desc = fDesc.value.toLowerCase()
+  let lung = fLu.value
+  let larg = fLa.value
 
-let lista = prodotti.filter(p=>{
-let ok = true
-if(sp) ok = ok && p.spessore == sp
-if(desc) ok = ok && p.nome.toLowerCase().includes(desc)
-if(lung) ok = ok && p.lunghezza == lung
-if(larg) ok = ok && p.larghezza == larg
-return ok
-})
+  let lista = prodotti.filter(p=>{
+    let ok = true
+    if(sp) ok = ok && p.spessore == sp
+    if(desc) ok = ok && p.nome.toLowerCase().includes(desc)
+    if(lung) ok = ok && p.lunghezza == lung
+    if(larg) ok = ok && p.larghezza == larg
+    return ok
+  })
 
-renderRisultati(lista)
+  renderRisultati(lista.slice(0,12)) // 🔥 limite qui
 }
 
 function renderRisultati(lista){
@@ -137,7 +177,9 @@ document.getElementById("titoloScaffale").innerText =
 
 scaffaleCorrente = {fila,scaffale}
 
-lista.sort((a,b)=>a.ripiano-b.ripiano)
+/* 1 è in alto */
+lista.sort((a,b)=>b.ripiano - a.ripiano)
+
 renderLista(lista)
 }
 
@@ -148,51 +190,86 @@ container.innerHTML=""
 
 lista.forEach(p=>{
 container.innerHTML+=`
-<div class="bg-gray-100 p-3 rounded flex justify-between items-center">
+<div class="bg-gray-100 p-3 rounded flex flex-col md:flex-row md:justify-between md:items-center gap-2">
 <div>
-<b>${p.nome}</b> (${p.lunghezza}x${p.larghezza} | ${p.spessore}mm) - Ripiano ${p.ripiano}
+<b>${p.nome}</b><br>
+<span class="text-sm text-gray-600">
+${p.lunghezza}x${p.larghezza} | ${p.spessore}mm - Ripiano ${p.ripiano}
+</span>
 </div>
 
-<div class="flex gap-1">
-
-<button onclick="su(${p.id})"
-class="bg-green-500 text-white px-2 rounded">⬆</button>
-
-<button onclick="giu(${p.id})"
-class="bg-green-500 text-white px-2 rounded">⬇</button>
-
-<button onclick="modifica(${p.id})"
-class="bg-blue-500 text-white px-2 rounded">✏</button>
-
-<button onclick="sposta(${p.id})"
-class="bg-yellow-500 text-white px-2 rounded">🔁</button>
-
-<button onclick="elimina(${p.id})"
-class="bg-red-500 text-white px-2 rounded">❌</button>
-
+<div class="flex gap-1 flex-wrap">
+<button onclick="su(${p.id})" class="bg-green-500 text-white px-3 py-1 rounded">⬆</button>
+<button onclick="giu(${p.id})" class="bg-green-500 text-white px-3 py-1 rounded">⬇</button>
+<button onclick="modifica(${p.id})" class="bg-blue-500 text-white px-3 py-1 rounded">✏</button>
+<button onclick="sposta(${p.id})" class="bg-yellow-500 text-white px-3 py-1 rounded">🔁</button>
+<button onclick="elimina(${p.id})" class="bg-red-500 text-white px-3 py-1 rounded">❌</button>
 </div>
 </div>`
 })
 }
 
-/* ================= AZIONI CRUD ================= */
-
-async function elimina(id){
-  await fetch(`/prodotti/${id}`,{ method:"DELETE"})
-  await caricaProdotti()
-  apriScaffaleDiretto(scaffaleCorrente.fila,scaffaleCorrente.scaffale)
-}
+/* ================= RIPIANI SENZA CONFLITTI ================= */
 
 async function su(id){
 let p = prodotti.find(x=>x.id===id)
-if(p.ripiano>1) p.ripiano--
+let altro = prodotti.find(x=>x.fila===p.fila && x.scaffale===p.scaffale && x.ripiano===p.ripiano+1)
+
+if(altro){
+altro.ripiano--
+await aggiorna(altro)
+}
+
+p.ripiano++
 await aggiorna(p)
 }
 
 async function giu(id){
 let p = prodotti.find(x=>x.id===id)
-p.ripiano++
+if(p.ripiano<=1) return
+
+let altro = prodotti.find(x=>x.fila===p.fila && x.scaffale===p.scaffale && x.ripiano===p.ripiano-1)
+
+if(altro){
+altro.ripiano++
+await aggiorna(altro)
+}
+
+p.ripiano--
 await aggiorna(p)
+}
+
+/* ================= SPOSTA CON MESSAGGIO ================= */
+
+async function sposta(id){
+
+let nuova = prompt("Nuova posizione (es 2c)")
+if(!nuova) return
+
+let match = nuova.toLowerCase().match(/^([1-4])([a-z])$/)
+if(!match){ alert("Formato non valido"); return }
+
+let p = prodotti.find(x=>x.id===id)
+
+let vecchia = `${p.fila}${p.scaffale}`
+let nuovaPos = `${match[1]}${match[2]}`
+
+p.fila = parseInt(match[1])
+p.scaffale = match[2]
+p.ripiano = getMaxRipiano(p.fila,p.scaffale)+1
+
+await aggiorna(p)
+
+document.getElementById("errore").innerText =
+`${p.nome} spostato da "${vecchia}" a "${nuovaPos}"`
+}
+
+/* ================= CRUD ================= */
+
+async function elimina(id){
+await fetch(`/prodotti/${id}`,{ method:"DELETE"})
+await caricaProdotti()
+apriScaffaleDiretto(scaffaleCorrente.fila,scaffaleCorrente.scaffale)
 }
 
 async function modifica(id){
@@ -209,54 +286,6 @@ p.larghezza = parseInt(larg)
 p.spessore = parseInt(sp)
 
 await aggiorna(p)
-}
-
-async function sposta(id){
-let nuova = prompt("Nuova posizione (es 2c)")
-if(!nuova) return
-
-let match = nuova.toLowerCase().match(/^([1-4])([a-z])$/)
-if(!match){ alert("Formato non valido"); return }
-
-let p = prodotti.find(x=>x.id===id)
-
-p.fila = parseInt(match[1])
-p.scaffale = match[2]
-p.ripiano = getMaxRipiano(p.fila,p.scaffale)+1
-
-await aggiorna(p)
-}
-
-async function aggiungiProdotto(){
-
-if(!scaffaleCorrente){
-alert("Apri prima uno scaffale")
-return
-}
-
-let nome = prompt("Nome prodotto:")
-let lung = prompt("Lunghezza:")
-let larg = prompt("Larghezza:")
-let sp = prompt("Spessore:")
-
-let ripiano = getMaxRipiano(scaffaleCorrente.fila,scaffaleCorrente.scaffale)+1
-
-await fetch("/prodotti",{
-method:"POST",
-headers:{ "Content-Type":"application/json"},
-body: JSON.stringify({
-nome,
-lunghezza:parseInt(lung),
-larghezza:parseInt(larg),
-spessore:parseInt(sp),
-fila:scaffaleCorrente.fila,
-scaffale:scaffaleCorrente.scaffale,
-ripiano
-})
-})
-
-await caricaProdotti()
-apriScaffaleDiretto(scaffaleCorrente.fila,scaffaleCorrente.scaffale)
 }
 
 async function aggiorna(p){
