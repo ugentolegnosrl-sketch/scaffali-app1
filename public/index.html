@@ -112,21 +112,21 @@ filtra()
 
 function filtra(){
 
-let sp = fSp.value
-let desc = fDesc.value.toLowerCase()
-let lung = fLu.value
-let larg = fLa.value
+  let sp = fSp.value
+  let desc = fDesc.value.toLowerCase()
+  let lung = fLu.value
+  let larg = fLa.value
 
-let lista = prodotti.filter(p=>{
-let ok = true
-if(sp) ok = ok && p.spessore == sp
-if(desc) ok = ok && p.nome.toLowerCase().includes(desc)
-if(lung) ok = ok && p.lunghezza == lung
-if(larg) ok = ok && p.larghezza == larg
-return ok
-})
+  let lista = prodotti.filter(p=>{
+    let ok = true
+    if(sp) ok = ok && p.spessore == sp
+    if(desc) ok = ok && p.nome.toLowerCase().includes(desc)
+    if(lung) ok = ok && p.lunghezza == lung
+    if(larg) ok = ok && p.larghezza == larg
+    return ok
+  })
 
-renderRisultati(lista)
+  renderRisultati(lista.slice(0,12)) // 🔥 limite qui
 }
 
 function renderRisultati(lista){
@@ -308,3 +308,4 @@ return Math.max(...lista.map(p=>p.ripiano))
 
 </body>
 </html>
+
