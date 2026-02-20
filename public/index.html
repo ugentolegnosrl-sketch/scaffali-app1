@@ -1,133 +1,310 @@
-<!DOCTYPE html><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<script src="https://cdn.tailwindcss.com"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gestione Scaffali</title>
+<script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 p-6">
 
-<h1 class="text-3xl font-bold mb-6">Gestione Scaffali</h1>
+<body class="bg-gray-100 min-h-screen p-4 md:p-6">
 
-<div class="grid grid-cols-4 gap-4 mb-4">
-  <input id="nome" placeholder="Descrizione" class="p-2 border rounded">
-  <input id="spessore" placeholder="Spessore" class="p-2 border rounded">
-  <input id="lunghezza" placeholder="Lunghezza" class="p-2 border rounded">
-  <input id="larghezza" placeholder="Larghezza" class="p-2 border rounded">
+<div class="max-w-7xl mx-auto space-y-8">
+
+<h1 class="text-2xl md:text-3xl font-bold text-center">Gestione Scaffali</h1>
+
+<!-- ================= RICERCA ================= -->
+<div class="bg-white p-4 md:p-6 rounded-xl shadow space-y-4">
+<h2 class="text-lg md:text-xl font-semibold">🔎 Ricerca Posizione</h2>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+<input id="fSpessore" type="number" placeholder="Spessore" class="border p-2 rounded w-full">
+<input id="fDescrizione" type="text" placeholder="Descrizione" class="border p-2 rounded w-full">
+<input id="fLunghezza" type="number" placeholder="Lunghezza" class="border p-2 rounded w-full">
+<input id="fLarghezza" type="number" placeholder="Larghezza" class="border p-2 rounded w-full">
 </div>
 
-<div id="results" class="grid grid-cols-3 gap-4"></div>
+<div id="suggestions" class="border rounded shadow bg-white hidden mt-1"></div>
+<div id="risultati" class="grid sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4"></div>
+</div>
 
-<hr class="my-8">
+<!-- ================= SCAFFALI ================= -->
+<div class="bg-white p-4 md:p-6 rounded-xl shadow space-y-4">
+<h2 class="text-lg md:text-xl font-semibold">📦 Aggiorna Scaffali</h2>
 
-<h2 class="text-xl font-bold mb-4">Aggiorna Scaffale</h2>
-<input id="scaffaleInput" placeholder="Es: 1b" class="p-2 border rounded">
-<button id="apriBtn" class="bg-blue-500 text-white px-4 py-2 rounded">Apri</button>
+<div class="flex flex-col sm:flex-row gap-2">
+<input id="inputScaffale" type="text" placeholder="Es: 1b"
+class="border p-2 rounded w-full sm:w-32">
+<button onclick="apriScaffale()" class="bg-blue-600 text-white px-4 py-2 rounded w-full sm:w-auto">
+Apri
+</button>
+<button onclick="aggiungiProdotto()" class="bg-green-600 text-white px-4 py-2 rounded w-full sm:w-auto">
+➕ Aggiungi
+</button>
+</div>
 
-<div id="scaffaleProdotti" class="mt-6"></div>
+<div id="errore" class="text-blue-600 font-medium"></div>
+<h3 id="titoloScaffale" class="text-lg font-bold"></h3>
+<div id="listaScaffale" class="space-y-3"></div>
+
+</div>
+</div>
 
 <script>
-const API_BASE = 'https://scaffali-app1.onrender.com';
 
-// --- FUNZIONE DI RICERCA ---
-async function search() {
-  const nome = encodeURIComponent(document.getElementById("nome").value);
-  const spessore = encodeURIComponent(document.getElementById("spessore").value);
-  const lunghezza = encodeURIComponent(document.getElementById("lunghezza").value);
-  const larghezza = encodeURIComponent(document.getElementById("larghezza").value);
+let prodotti = []
+let scaffaleCorrente = null
 
-  try {
-    const res = await fetch(`${API_BASE}/api/search?nome=${nome}&spessore=${spessore}&lunghezza=${lunghezza}&larghezza=${larghezza}`);
-    const data = await res.json();
+/* ================= LOAD ================= */
 
-    if(!Array.isArray(data)){
-      console.error("Errore API:", data);
-      return;
-    }
+async function caricaProdotti(){
+  const res = await fetch("/prodotti")
+  prodotti = await res.json()
+}
+caricaProdotti()
 
-    const container = document.getElementById("results");
-    container.innerHTML = "";
+/* ================= CHIUDI SUGGERIMENTI MOBILE ================= */
 
-    data.forEach(p => {
-      const safeScaffale = p.scaffale.replace(/'/g, "\\'");
-      const div = document.createElement('div');
-      div.className = "bg-white p-4 rounded shadow cursor-pointer";
-      div.innerHTML = `
-        <h3 class="font-bold">${p.nome}</h3>
-        <p>${p.lunghezza}x${p.larghezza} - ${p.spessore}mm</p>
-        <p class="text-red-600 font-bold mt-2">Posizione: ${p.fila}${p.scaffale}</p>
-      `;
-      div.addEventListener('click', () => apriScaffale(p.fila, p.scaffale));
-      container.appendChild(div);
-    });
-
-  } catch(e) {
-    console.error("Fetch error:", e);
+document.addEventListener("click", function(e){
+  if(!e.target.closest("#fDescrizione")){
+    document.getElementById("suggestions").classList.add("hidden")
   }
+})
+
+/* ================= RICERCA ================= */
+
+const fSp = document.getElementById("fSpessore")
+const fDesc = document.getElementById("fDescrizione")
+const fLu = document.getElementById("fLunghezza")
+const fLa = document.getElementById("fLarghezza")
+
+;[fSp,fDesc,fLu,fLa].forEach(i=>i.addEventListener("input", filtra))
+fDesc.addEventListener("input", suggerimenti)
+
+function suggerimenti(){
+
+let val = fDesc.value.toLowerCase()
+let box = document.getElementById("suggestions")
+if(!val){ box.classList.add("hidden"); return }
+
+let nomi = [...new Set(
+prodotti
+.filter(p=>p.nome.toLowerCase().includes(val))
+.map(p=>p.nome)
+)].slice(0,5)
+
+if(nomi.length===0){ box.classList.add("hidden"); return }
+
+box.innerHTML = nomi.map(n=>
+`<div class="p-2 hover:bg-gray-100 cursor-pointer"
+onclick="selezionaSuggerimento('${n.replace(/'/g,"\\'")}')">
+${n}
+</div>`).join("")
+
+box.classList.remove("hidden")
 }
 
-// --- FUNZIONE APRI SCAFFALE ---
-async function apriScaffale(fila, scaffale) {
-  document.getElementById("scaffaleInput").value = fila + scaffale;
-  await caricaScaffale();
+function selezionaSuggerimento(nome){
+fDesc.value = nome
+document.getElementById("suggestions").classList.add("hidden")
+filtra()
 }
 
-// --- FUNZIONE CARICA SCAFFALE ---
-async function caricaScaffale() {
-  const val = document.getElementById("scaffaleInput").value.toLowerCase();
-  if(!val || val.length < 2) return alert("Formato scaffale non valido");
+function filtra(){
 
-  const fila = parseInt(val[0]);
-  const scaffale = val[1];
+let sp = fSp.value
+let desc = fDesc.value.toLowerCase()
+let lung = fLu.value
+let larg = fLa.value
 
-  try {
-    const res = await fetch(`${API_BASE}/api/scaffale/${fila}/${scaffale}`);
-    if(!res.ok) return alert("Scaffale non valido");
+let lista = prodotti.filter(p=>{
+let ok = true
+if(sp) ok = ok && p.spessore == sp
+if(desc) ok = ok && p.nome.toLowerCase().includes(desc)
+if(lung) ok = ok && p.lunghezza == lung
+if(larg) ok = ok && p.larghezza == larg
+return ok
+})
 
-    const data = await res.json();
-    const container = document.getElementById("scaffaleProdotti");
-    container.innerHTML = `<h3 class="text-2xl font-bold mb-4">Scaffale ${fila}${scaffale}</h3>`;
-
-    data.forEach(p => {
-      const div = document.createElement('div');
-      div.className = "bg-white p-3 rounded shadow mb-2 flex justify-between items-center";
-      div.innerHTML = `
-        <div>
-          <strong>${p.nome}</strong>
-          <div>${p.lunghezza}x${p.larghezza} - ${p.spessore}mm</div>
-          <div>Ripiano: ${p.ripiano}</div>
-        </div>
-        <button class="bg-red-500 text-white px-2 py-1 rounded">Elimina</button>
-      `;
-      div.querySelector('button').addEventListener('click', () => elimina(p.id));
-      container.appendChild(div);
-    });
-
-  } catch(e) {
-    console.error("Fetch error:", e);
-    alert("Errore nel caricamento dello scaffale");
-  }
+renderRisultati(lista)
 }
 
-// --- FUNZIONE ELIMINA ---
+function renderRisultati(lista){
+let c = document.getElementById("risultati")
+c.innerHTML = ""
+
+lista.forEach(p=>{
+c.innerHTML += `
+<div onclick="apriScaffaleDiretto(${p.fila},'${p.scaffale}')"
+class="bg-gray-50 p-4 rounded-xl shadow hover:bg-blue-50 cursor-pointer transition">
+<div class="font-semibold">${p.nome}</div>
+<div>${p.lunghezza}x${p.larghezza} | ${p.spessore}mm</div>
+<div class="text-blue-600 font-bold mt-2">
+Posizione: ${p.fila}${p.scaffale.toUpperCase()}
+</div>
+</div>`
+})
+}
+
+/* ================= SCAFFALE ================= */
+
+function apriScaffale(){
+let input = document.getElementById("inputScaffale").value.trim().toLowerCase()
+let match = input.match(/^([1-4])([a-z])$/)
+
+if(!match){
+document.getElementById("errore").innerText = "Formato non valido"
+return
+}
+
+apriScaffaleDiretto(parseInt(match[1]),match[2])
+}
+
+function apriScaffaleDiretto(fila,scaffale){
+
+let lista = prodotti.filter(p=>p.fila==fila && p.scaffale==scaffale)
+
+if(lista.length===0){
+document.getElementById("errore").innerText="Scaffale vuoto"
+document.getElementById("titoloScaffale").innerText=""
+document.getElementById("listaScaffale").innerHTML=""
+return
+}
+
+document.getElementById("errore").innerText=""
+document.getElementById("titoloScaffale").innerText =
+`Scaffale ${fila}${scaffale.toUpperCase()}`
+
+scaffaleCorrente = {fila,scaffale}
+
+/* 1 è in alto */
+lista.sort((a,b)=>b.ripiano - a.ripiano)
+
+renderLista(lista)
+}
+
+function renderLista(lista){
+
+let container = document.getElementById("listaScaffale")
+container.innerHTML=""
+
+lista.forEach(p=>{
+container.innerHTML+=`
+<div class="bg-gray-100 p-3 rounded flex flex-col md:flex-row md:justify-between md:items-center gap-2">
+<div>
+<b>${p.nome}</b><br>
+<span class="text-sm text-gray-600">
+${p.lunghezza}x${p.larghezza} | ${p.spessore}mm - Ripiano ${p.ripiano}
+</span>
+</div>
+
+<div class="flex gap-1 flex-wrap">
+<button onclick="su(${p.id})" class="bg-green-500 text-white px-3 py-1 rounded">⬆</button>
+<button onclick="giu(${p.id})" class="bg-green-500 text-white px-3 py-1 rounded">⬇</button>
+<button onclick="modifica(${p.id})" class="bg-blue-500 text-white px-3 py-1 rounded">✏</button>
+<button onclick="sposta(${p.id})" class="bg-yellow-500 text-white px-3 py-1 rounded">🔁</button>
+<button onclick="elimina(${p.id})" class="bg-red-500 text-white px-3 py-1 rounded">❌</button>
+</div>
+</div>`
+})
+}
+
+/* ================= RIPIANI SENZA CONFLITTI ================= */
+
+async function su(id){
+let p = prodotti.find(x=>x.id===id)
+let altro = prodotti.find(x=>x.fila===p.fila && x.scaffale===p.scaffale && x.ripiano===p.ripiano+1)
+
+if(altro){
+altro.ripiano--
+await aggiorna(altro)
+}
+
+p.ripiano++
+await aggiorna(p)
+}
+
+async function giu(id){
+let p = prodotti.find(x=>x.id===id)
+if(p.ripiano<=1) return
+
+let altro = prodotti.find(x=>x.fila===p.fila && x.scaffale===p.scaffale && x.ripiano===p.ripiano-1)
+
+if(altro){
+altro.ripiano++
+await aggiorna(altro)
+}
+
+p.ripiano--
+await aggiorna(p)
+}
+
+/* ================= SPOSTA CON MESSAGGIO ================= */
+
+async function sposta(id){
+
+let nuova = prompt("Nuova posizione (es 2c)")
+if(!nuova) return
+
+let match = nuova.toLowerCase().match(/^([1-4])([a-z])$/)
+if(!match){ alert("Formato non valido"); return }
+
+let p = prodotti.find(x=>x.id===id)
+
+let vecchia = `${p.fila}${p.scaffale}`
+let nuovaPos = `${match[1]}${match[2]}`
+
+p.fila = parseInt(match[1])
+p.scaffale = match[2]
+p.ripiano = getMaxRipiano(p.fila,p.scaffale)+1
+
+await aggiorna(p)
+
+document.getElementById("errore").innerText =
+`${p.nome} spostato da "${vecchia}" a "${nuovaPos}"`
+}
+
+/* ================= CRUD ================= */
+
 async function elimina(id){
-  try {
-    const res = await fetch(`${API_BASE}/api/${id}`, { method: "DELETE" });
-    if(res.ok) await caricaScaffale();
-  } catch(e) {
-    console.error("Errore eliminazione:", e);
-  }
+await fetch(`/prodotti/${id}`,{ method:"DELETE"})
+await caricaProdotti()
+apriScaffaleDiretto(scaffaleCorrente.fila,scaffaleCorrente.scaffale)
 }
 
-// --- EVENTI ---
-document.querySelectorAll("input").forEach(i => i.addEventListener("input", search));
-document.getElementById("apriBtn").addEventListener("click", caricaScaffale);
+async function modifica(id){
+let p = prodotti.find(x=>x.id===id)
 
-// --- RICERCA INIZIALE ---
-window.addEventListener("DOMContentLoaded", search);
+let nome = prompt("Nuovo nome:",p.nome)
+let lung = prompt("Nuova lunghezza:",p.lunghezza)
+let larg = prompt("Nuova larghezza:",p.larghezza)
+let sp = prompt("Nuovo spessore:",p.spessore)
+
+p.nome = nome
+p.lunghezza = parseInt(lung)
+p.larghezza = parseInt(larg)
+p.spessore = parseInt(sp)
+
+await aggiorna(p)
+}
+
+async function aggiorna(p){
+await fetch(`/prodotti/${p.id}`,{
+method:"PUT",
+headers:{ "Content-Type":"application/json"},
+body: JSON.stringify(p)
+})
+await caricaProdotti()
+apriScaffaleDiretto(p.fila,p.scaffale)
+}
+
+function getMaxRipiano(fila,scaffale){
+let lista = prodotti.filter(p=>p.fila==fila && p.scaffale==scaffale)
+if(lista.length===0) return 0
+return Math.max(...lista.map(p=>p.ripiano))
+}
+
 </script>
 
 </body>
 </html>
-
-
