@@ -18,10 +18,10 @@
 <h2 class="text-lg md:text-xl font-semibold">🔎 Ricerca Posizione</h2>
 
 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-<input id="fSpessore" type="number" autocomplete="off" placeholder="Spessore" class="border p-2 rounded w-full">
-<input id="fDescrizione" type="text" placeholder="Descrizione" class="border p-2 rounded w-full">
-<input id="fLunghezza" type="number" placeholder="Lunghezza" class="border p-2 rounded w-full">
-<input id="fLarghezza" type="number" placeholder="Larghezza" class="border p-2 rounded w-full">
+<input id="fSpessore" type="number" placeholder="Spessore" autocomplete="off" class="border p-2 rounded w-full">
+<input id="fDescrizione" type="text" placeholder="Descrizione" autocomplete="off" class="border p-2 rounded w-full">
+<input id="fLunghezza" type="number" placeholder="Lunghezza" autocomplete="off" class="border p-2 rounded w-full">
+<input id="fLarghezza" type="number" placeholder="Larghezza" autocomplete="off" class="border p-2 rounded w-full">
 </div>
 
 <div id="suggestions" class="border rounded shadow bg-white hidden mt-1"></div>
@@ -63,7 +63,7 @@ async function caricaProdotti(){
 }
 caricaProdotti()
 
-/* ================= CHIUDI SUGGERIMENTI MOBILE ================= */
+/* ================= CHIUDI SUGGERIMENTI ================= */
 
 document.addEventListener("click", function(e){
   if(!e.target.closest("#fDescrizione")){
@@ -82,7 +82,6 @@ const fLa = document.getElementById("fLarghezza")
 fDesc.addEventListener("input", suggerimenti)
 
 function suggerimenti(){
-
 let val = fDesc.value.toLowerCase()
 let box = document.getElementById("suggestions")
 if(!val){ box.classList.add("hidden"); return }
@@ -111,7 +110,6 @@ filtra()
 }
 
 function filtra(){
-
   let sp = fSp.value
   let desc = fDesc.value.toLowerCase()
   let lung = fLu.value
@@ -126,7 +124,7 @@ function filtra(){
     return ok
   })
 
-  renderRisultati(lista.slice(0,12)) // 🔥 limite qui
+  renderRisultati(lista.slice(0,12))
 }
 
 function renderRisultati(lista){
@@ -146,7 +144,48 @@ Posizione: ${p.fila}${p.scaffale.toUpperCase()}
 })
 }
 
-/* ================= SCAFFALE ================= */
+/* ================= AGGIUNGI PRODOTTO ================= */
+
+async function aggiungiProdotto(){
+
+if(!scaffaleCorrente){
+alert("Apri prima uno scaffale")
+return
+}
+
+let nome = prompt("Nome prodotto:")
+if(!nome) return
+
+let lung = parseInt(prompt("Lunghezza:"))
+let larg = parseInt(prompt("Larghezza:"))
+let sp = parseInt(prompt("Spessore:"))
+
+let nuovo = {
+nome: nome,
+lunghezza: lung,
+larghezza: larg,
+spessore: sp,
+fila: scaffaleCorrente.fila,
+scaffale: scaffaleCorrente.scaffale,
+ripiano: getMaxRipiano(scaffaleCorrente.fila,scaffaleCorrente.scaffale)+1
+}
+
+let res = await fetch("/prodotti",{
+method:"POST",
+headers:{ "Content-Type":"application/json"},
+body: JSON.stringify(nuovo)
+})
+
+if(!res.ok){
+alert("Errore inserimento")
+return
+}
+
+await caricaProdotti()
+apriScaffaleDiretto(scaffaleCorrente.fila,scaffaleCorrente.scaffale)
+}
+
+/* ================= RESTO CODICE SCAFFALI ================= */
 
 function apriScaffale(){
 let input = document.getElementById("inputScaffale").value.trim().toLowerCase()
@@ -177,14 +216,11 @@ document.getElementById("titoloScaffale").innerText =
 
 scaffaleCorrente = {fila,scaffale}
 
-/* 1 è in alto */
 lista.sort((a,b)=>b.ripiano - a.ripiano)
-
 renderLista(lista)
 }
 
 function renderLista(lista){
-
 let container = document.getElementById("listaScaffale")
 container.innerHTML=""
 
@@ -197,105 +233,8 @@ container.innerHTML+=`
 ${p.lunghezza}x${p.larghezza} | ${p.spessore}mm - Ripiano ${p.ripiano}
 </span>
 </div>
-
-<div class="flex gap-1 flex-wrap">
-<button onclick="su(${p.id})" class="bg-green-500 text-white px-3 py-1 rounded">⬆</button>
-<button onclick="giu(${p.id})" class="bg-green-500 text-white px-3 py-1 rounded">⬇</button>
-<button onclick="modifica(${p.id})" class="bg-blue-500 text-white px-3 py-1 rounded">✏</button>
-<button onclick="sposta(${p.id})" class="bg-yellow-500 text-white px-3 py-1 rounded">🔁</button>
-<button onclick="elimina(${p.id})" class="bg-red-500 text-white px-3 py-1 rounded">❌</button>
-</div>
 </div>`
 })
-}
-
-/* ================= RIPIANI SENZA CONFLITTI ================= */
-
-async function su(id){
-let p = prodotti.find(x=>x.id===id)
-let altro = prodotti.find(x=>x.fila===p.fila && x.scaffale===p.scaffale && x.ripiano===p.ripiano+1)
-
-if(altro){
-altro.ripiano--
-await aggiorna(altro)
-}
-
-p.ripiano++
-await aggiorna(p)
-}
-
-async function giu(id){
-let p = prodotti.find(x=>x.id===id)
-if(p.ripiano<=1) return
-
-let altro = prodotti.find(x=>x.fila===p.fila && x.scaffale===p.scaffale && x.ripiano===p.ripiano-1)
-
-if(altro){
-altro.ripiano++
-await aggiorna(altro)
-}
-
-p.ripiano--
-await aggiorna(p)
-}
-
-/* ================= SPOSTA CON MESSAGGIO ================= */
-
-async function sposta(id){
-
-let nuova = prompt("Nuova posizione (es 2c)")
-if(!nuova) return
-
-let match = nuova.toLowerCase().match(/^([1-4])([a-z])$/)
-if(!match){ alert("Formato non valido"); return }
-
-let p = prodotti.find(x=>x.id===id)
-
-let vecchia = `${p.fila}${p.scaffale}`
-let nuovaPos = `${match[1]}${match[2]}`
-
-p.fila = parseInt(match[1])
-p.scaffale = match[2]
-p.ripiano = getMaxRipiano(p.fila,p.scaffale)+1
-
-await aggiorna(p)
-
-document.getElementById("errore").innerText =
-`${p.nome} spostato da "${vecchia}" a "${nuovaPos}"`
-}
-
-/* ================= CRUD ================= */
-
-async function elimina(id){
-await fetch(`/prodotti/${id}`,{ method:"DELETE"})
-await caricaProdotti()
-apriScaffaleDiretto(scaffaleCorrente.fila,scaffaleCorrente.scaffale)
-}
-
-async function modifica(id){
-let p = prodotti.find(x=>x.id===id)
-
-let nome = prompt("Nuovo nome:",p.nome)
-let lung = prompt("Nuova lunghezza:",p.lunghezza)
-let larg = prompt("Nuova larghezza:",p.larghezza)
-let sp = prompt("Nuovo spessore:",p.spessore)
-
-p.nome = nome
-p.lunghezza = parseInt(lung)
-p.larghezza = parseInt(larg)
-p.spessore = parseInt(sp)
-
-await aggiorna(p)
-}
-
-async function aggiorna(p){
-await fetch(`/prodotti/${p.id}`,{
-method:"PUT",
-headers:{ "Content-Type":"application/json"},
-body: JSON.stringify(p)
-})
-await caricaProdotti()
-apriScaffaleDiretto(p.fila,p.scaffale)
 }
 
 function getMaxRipiano(fila,scaffale){
@@ -308,4 +247,3 @@ return Math.max(...lista.map(p=>p.ripiano))
 
 </body>
 </html>
-
